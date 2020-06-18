@@ -1,10 +1,13 @@
 
+const mongoURL = "mongodb://localhost:27017/"
+const dbName = "test";
+const collectionProduct = "product";
+const collectionProductPrice = "product_price"
 const puppeteer = require('puppeteer-extra')
 const mongoClient = require("mongodb").MongoClient;
 const StealthPlugin = require('puppeteer-extra-plugin-stealth')
 puppeteer.use(StealthPlugin())
 const bent = require("bent");
-const mongoURL = "mongodb://localhost:27017/test"
 
 const getBuffer = bent("buffer");
 
@@ -47,46 +50,50 @@ const getBuffer = bent("buffer");
     const result = await page.evaluate(() => {
       const items = []
       for (el of document.querySelector(".products").childNodes) {
-        const imgSrc = el.querySelector("img").src;
         const item = {
-            id: el.querySelector(".style-number").textContent.replace(/\D/g,''),
-            shop: "David Jones",
-            brand: el.querySelector(".item-brand")
-                      .textContent,
-            name: el.querySelector("h4").textContent,
-            link: el.querySelector("h4").querySelector("a").href,
-            price: el.querySelector(".price").textContent,
-            img: imgSrc
-          }
-        items.push(item);
+          id: el.querySelector(".style-number").textContent.replace(/\D/g,''),
+          shop: "David Jones",
+          brand: el.querySelector(".item-brand")
+                    .textContent,
+          name: el.querySelector("h4").textContent,
+          link: el.querySelector("h4").querySelector("a").href,
+          price: el.querySelector(".price").textContent,
+          img: el.querySelector("img").src
+        }
+        const itemPrice = {
+          id: el.querySelector(".style-number").textContent.replace(/\D/g,''),
+          price: el.querySelector(".price").textContent,
+          date: (new Date()).toISOString()
+        }
+        items.push([item, itemPrice]);
+        
       }
       return items;
     });
     products.push(result);
   }
   
-  mongoClient.connect(mongoURL, function(err, client) {
-    if (!err) {
-      console.log("Connected");
-    }
-    const db = client.db("test");
-    const collection = db.collection("product");
-    const bulk = collection.initializeUnorderedBulkOp();
+  // mongoClient.connect(mongoURL, function(err, client) {
+  //   if (!err) {
+  //     console.log("Connected");
+  //   }
+  //   const db = client.db("test");
+  //   const collection = db.collection("product");
+  //   const bulk = collection.initializeUnorderedBulkOp();
 
-    products[0].forEach((p, i) => {
-      bulk.find(p).upsert().replaceOne(p);
-      console.log(p.price);
-      console.log(i);
-    });
-    bulk.execute();
-    console.log("done");
-    client.close();
-  })
+  //   products[0].forEach((p, i) => {
+  //     bulk.find(p).upsert().replaceOne(p);
+  //     console.log(p.price);
+  //     console.log(i);
+  //   });
+  //   bulk.execute();
+  //   console.log("done");
+  //   client.close();
+  // })
 
-  console.log(products[0]);
-  console.log(products[0].length);
-  products[0].forEach(p => mongoClient.test)
-  await browser.close();
+  insertToProduct(products).then(_ => 
+    insertToProductPrice(products)).then(_=> 
+    browser.close())
 })();
 
 
@@ -97,4 +104,50 @@ function avoidLoadMore(url, text) {
   const maxItemsPerPage = 90;
   const pageArgument = "#catpage=" + Math.ceil(numberOfItems/maxItemsPerPage);
   return url + pageArgument;
+}
+
+async function insertToProduct(items) {
+  let client;
+  try {
+    client = await mongoClient.connect(mongoURL);
+    const db = client.db(dbName);
+    const collection = db.collection(collectionProduct);
+    const bulk = collection.initializeUnorderedBulkOp();
+    items[0].forEach((item_, index) => {
+      const item = item_[0]
+      bulk.find(item).upsert().replaceOne(item);
+      console.log(item.price);
+      console.log(index);
+    });
+    bulk.execute();
+  } catch(e) {
+    console.error(e);
+  } finally {
+    console.log("done");
+    client.close();
+  }
+
+}
+
+async function insertToProductPrice(items) {
+  let client;
+  try {
+    client = await mongoClient.connect(mongoURL);
+    const db = client.db(dbName);
+    const collection = db.collection(collectionProductPrice);
+    const bulk = collection.initializeUnorderedBulkOp();
+    items[0].forEach((item_, index) => {
+      const item = item_[1]
+      bulk.insert(item);
+      console.log(item.price);
+      console.log(index);
+    });
+    bulk.execute();
+  } catch(e) {
+    console.error(e);
+  } finally {
+    console.log("done");
+    client.close();
+  }
+
 }
