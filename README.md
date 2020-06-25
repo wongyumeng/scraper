@@ -11,7 +11,7 @@ MongoDB and Node.js are required. Execute the following command below to install
 npm install
 ```
 
-## Start
+## Getting Started
 
 ```
 node dj.js
