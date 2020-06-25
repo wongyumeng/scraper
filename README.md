@@ -10,3 +10,11 @@ MongoDB and Node.js are required. Execute the following command below to install
 ```
 npm install
 ```
+
+## Start
+
+```
+node dj.js
+```
+
+Execute the command above to start scraping from DJ (WIP)
